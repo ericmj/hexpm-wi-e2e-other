@@ -1,0 +1,34 @@
+name: ratelimit
+
+on: workflow_dispatch
+
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  HEX_API_URL: https://staging.hex.pm/api
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  ratelimit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: T15 failed exchanges per repository
+        run: |
+          . scripts/wi.sh
+          first=""
+          for i in $(seq 1 31); do
+            oidc "o$i"; exchange package:hexpm/wi_e2e_public "o$i" "r$i"
+            case "$STATUS" in
+              403) ;;
+              429) first=$i; expect 429 slow_down; break ;;
+              *) echo "::error::unexpected $STATUS at attempt $i"; exit 1 ;;
+            esac
+          done
+          echo "first 429 at attempt ${first:-none}"
+          [ -n "$first" ]

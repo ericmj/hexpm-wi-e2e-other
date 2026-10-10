@@ -1,0 +1,38 @@
+name: fetch
+
+on:
+  workflow_dispatch:
+    inputs:
+      expect:
+        type: choice
+        options: [refused, success]
+
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  HEX_API_URL: https://staging.hex.pm/api
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup
+      - name: T28/T29 fetch, expecting ${{ inputs.expect }}
+        run: |
+          if [ "${{ inputs.expect }}" = success ]; then
+            mix deps.get 2>&1 | tee deps.log
+            grep -q "Authenticated to the wi_e2e organization with Workload Identity" deps.log
+            out=$(mix run -e 'IO.puts(WiE2ePrivateDep.hello())' | tail -1)
+            echo "$out"
+            [ "$out" = "wi_e2e ok" ]
+          else
+            if mix deps.get > deps.log 2>&1; then cat deps.log; echo "::error::deps.get succeeded"; exit 1; fi
+            cat deps.log
+          fi
